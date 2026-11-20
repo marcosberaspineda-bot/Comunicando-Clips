@@ -1,0 +1,4 @@
+PySide6>=6.8,<7
+faster-whisper>=1.1,<2
+yt-dlp>=2025.1
+pyinstaller>=6.11,<7
