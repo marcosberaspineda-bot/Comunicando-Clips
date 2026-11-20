@@ -1,0 +1,63 @@
+
+name: Crear DMG para Mac M2
+
+on:
+  workflow_dispatch:
+
+jobs:
+  crear-dmg:
+    runs-on: macos-15
+
+    steps:
+      - name: Descargar proyecto
+        uses: actions/checkout@v4
+
+      - name: Instalar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          architecture: arm64
+
+      - name: Instalar FFmpeg
+        run: brew install ffmpeg
+
+      - name: Instalar dependencias
+        run: python -m pip install -r requirements.txt
+
+      - name: Probar motor
+        run: python -m unittest test_engine -v
+
+      - name: Probar interfaz
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: python -m unittest test_gui -v
+
+      - name: Compilar aplicacion
+        run: |
+          pyinstaller --noconfirm --clean --windowed --onedir \
+            --target-arch arm64 \
+            --name "Comunicando Clips" \
+            --collect-all faster_whisper \
+            --collect-all ctranslate2 \
+            --collect-all tokenizers \
+            --collect-submodules yt_dlp \
+            --hidden-import PySide6.QtMultimedia \
+            --hidden-import PySide6.QtMultimediaWidgets \
+            app.py
+          codesign --force --deep --sign - "dist/Comunicando Clips.app"
+
+      - name: Generar DMG
+        run: |
+          mkdir -p staging entrega
+          ditto "dist/Comunicando Clips.app" "staging/Comunicando Clips.app"
+          ln -s /Applications staging/Aplicaciones
+          hdiutil create -volname "Comunicando Clips" \
+            -srcfolder staging -ov -format UDZO \
+            entrega/Comunicando_Clips_Mac_M2.dmg
+          hdiutil verify entrega/Comunicando_Clips_Mac_M2.dmg
+
+      - name: Publicar instalador
+        uses: actions/upload-artifact@v4
+        with:
+          name: Comunicando-Clips-Mac-M2-DMG
+          path: entrega/Comunicando_Clips_Mac_M2.dmg
